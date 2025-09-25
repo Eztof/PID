@@ -388,7 +388,7 @@
             legend: { labels: { color: '#e6edf5' } },
             tooltip: {
               callbacks: {
-                label: (ctx)=> `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
+                label: (ctx)=> ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2)
               }
             },
             zoom: {
@@ -475,15 +475,13 @@
       const metrics = { offset, overshoot, oscillates: osc, periodMin: per, kP, tn, td, xwh };
       const recommendations = heuristicTuning(metrics);
 
-      const lines = [
-        `<div class='text-slate-300'>Erkannte Kurven: ${pv?"Ist/PV":"–"}, ${tvsoll?"TVsoll":"–"}, ${y?"Y-Ausgang":"–"}</div>`,
-        `<div><span class='k'>Offset</span> Ist – Soll: <b>${offset.toFixed(2)} K</b></div>`,
-        `<div><span class='k'>Überschwingen</span>: <b>${(overshoot*100).toFixed(1)}%</b>${per?`, vermutete Periodendauer ~ <b>${per.toFixed(0)} min</b>`:''}</div>`,
-        `<div class='mt-2'><span class='k'>Gegenwärtige Parametrierung</span>: XPY1=${xp} K, tN=${tn} min, D=${td} s, xwh=${xwh} K → angenäherte P‑Verstärkung kP≈${kP.toFixed(2)} %/K</div>`,
-        `<div class='mt-2'><span class='k'>Vorschläge (heuristisch)</span><ul class='list-disc ml-6 mt-1'>${recommendations.map(r=>'<li>'+r+'</li>').join('')}</ul></div>`
-      ];
-
-      document.getElementById('analysis').innerHTML = lines.join('');
+      let html = '';
+      html += '<div class=\'text-slate-300\'>Erkannte Kurven: ' + (pv? 'Ist/PV' : '–') + ', ' + (tvsoll? 'TVsoll' : '–') + ', ' + (y? 'Y-Ausgang' : '–') + '</div>';
+      html += '<div><span class=\'k\'>Offset</span> Ist – Soll: <b>' + offset.toFixed(2) + ' K</b></div>';
+      html += '<div><span class=\'k\'>Überschwingen</span>: <b>' + (overshoot*100).toFixed(1) + '%</b>' + (per? ', vermutete Periodendauer ~ <b>' + per.toFixed(0) + ' min</b>' : '') + '</div>';
+      html += '<div class=\'mt-2\'><span class=\'k\'>Gegenwärtige Parametrierung</span>: XPY1=' + xp + ' K, tN=' + tn + ' min, D=' + td + ' s, xwh=' + xwh + ' K → angenäherte P‑Verstärkung kP≈' + kP.toFixed(2) + ' %/K</div>';
+      html += '<div class=\'mt-2\'><span class=\'k\'>Vorschläge (heuristisch)</span><ul class=\'list-disc ml-6 mt-1\'>' + recommendations.map(function(r){ return '<li>' + r + '</li>'; }).join('') + '</ul></div>';
+      document.getElementById('analysis').innerHTML = html;
     }
 
     function shortForecast(){
