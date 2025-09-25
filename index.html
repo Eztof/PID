@@ -3,426 +3,532 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>S239 Heizungsregler – Trend‑Analyzer & Parameter‑Helfer</title>
+  <title>S239 – Trend Viewer & PID-Tuning</title>
+  <!-- Tailwind via CDN for quick, clean UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Simple icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#0b1020;--card:#121938;--muted:#97a0c3;--text:#e9ecff;--accent:#7dc6ff;--grid:#1b2246;--ok:#33d69f;--warn:#ffb347;--err:#ff6b6b}
-    html,body{height:100%}
-    body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--text)}
-    .wrap{max-width:1200px;margin:0 auto;padding:20px}
-    h1{font-size:24px;margin:0 0 12px}
-    .row{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
-    .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
-    input,select,button,textarea{width:100%;box-sizing:border-box;background:#12172f;color:var(--text);border:1px solid #2a315a;border-radius:10px;padding:10px}
-    input[type="number"]{text-align:right}
-    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-    .muted{color:var(--muted)}
-    .btn{cursor:pointer;background:linear-gradient(180deg,#2b7cff,#0bbef5);border:none}
-    .btn.alt{background:#1b2246}
-    canvas{width:100%;height:340px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:12px}
-    .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 0}
-    .kpi>div{background:#0f1531;border:1px solid #232a52;border-radius:12px;padding:10px}
-    .flag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;margin-left:6px}
-    .ok{background:rgba(51,214,159,.14);color:var(--ok)}
-    .warn{background:rgba(255,179,71,.14);color:var(--warn)}
-    .err{background:rgba(255,107,107,.14);color:var(--err)}
-    details{background:#0f1531;border:1px solid #232a52;border-radius:12px;padding:10px}
-    summary{cursor:pointer}
-    .footer{margin-top:14px;font-size:12px;color:var(--muted)}
-    .inline{display:flex;gap:8px;align-items:center}
+    :root { --bg: #0b1220; --card: #0e1729; --muted: #9fb3c8; --acc: #5eead4; }
+    html, body { height: 100%; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial; background: linear-gradient(180deg, #0b1220 0%, #0c1426 100%); color: #e6edf5; }
+    .card { background: linear-gradient(180deg, #0e1729 0%, #0f1a30 100%); border: 1px solid rgba(255,255,255,.06); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+    .k { color: var(--acc); }
+    .chip { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); font-size: 12px; }
+    .btn { background: linear-gradient(180deg, #1b2540 0%, #101a31 100%); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 10px 14px; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(0,0,0,.25); }
+    .input { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 10px 12px; }
+    .label { font-size: 12px; color: var(--muted); }
+    .grid-areas { display: grid; grid-template-columns: 340px 1fr; grid-template-rows: auto 1fr; gap: 16px; height: calc(100vh - 32px); }
+    @media (max-width: 1100px){ .grid-areas { grid-template-columns: 1fr; grid-template-rows: auto auto auto; height: auto; } }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>S239 Heizungsregler – Trend‑Analyzer & Parameter‑Helfer</h1>
-  <p class="muted">Lade Deinen <b>trend.xml</b> Export (DDC4000) und trage die aktuellen S239‑Parameter ein. Die Seite berechnet <i>T<sub>A,vz</sub></i>, den <i>TV<sub>soll</sub></i> gemäß Heizkurve (Tag/Nacht), gibt eine einfache Prognose und schlägt Parameter‑Anpassungen vor. Läuft komplett lokal – keine Datenübertragung.</p>
-
-  <div class="row">
-    <div class="card">
-      <div class="grid2">
-        <div>
-          <label>trend.xml laden</label>
-          <input id="file" type="file" accept=".xml" />
-        </div>
-        <div>
-          <label>Trend‑Objekt</label>
-          <select id="series"></select>
-        </div>
+  <div class="p-4">
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+      <div>
+        <h1 class="text-2xl font-semibold">S239 – Trend Viewer & PID‑Tuning</h1>
+        <p class="text-sm text-slate-300">Trendkurven anzeigen, suchen & filtern • PID‑Analyse • Heuristische Vorschläge für XPY1, tN, Vorhalt</p>
       </div>
-
-      <div class="grid3" style="margin-top:8px">
-        <div>
-          <label>Regelzustand</label>
-          <select id="mode">
-            <option value="tag">Regeln Tag</option>
-            <option value="nacht">Regeln Nacht</option>
-          </select>
-        </div>
-        <div>
-          <label>t<sub>Avz</sub> (h) – 5168</label>
-          <input id="tavz" type="number" step="1" min="1" value="24" />
-        </div>
-        <div>
-          <label>TV abs (K, Nacht) – 5167</label>
-          <input id="tvabs" type="number" step="1" value="-12" />
-        </div>
+      <div class="flex items-center gap-2">
+        <span class="chip">Einzel‑HTML • offline nutzbar</span>
+        <button id="btnExportPNG" class="btn text-sm">PNG exportieren</button>
       </div>
+    </header>
 
-      <div class="grid">
-        <div>
-          <label>EF Heizkurve – 5155</label>
-          <input id="ef" type="number" step="0.1" min="0" value="1.5" />
-        </div>
-        <div>
-          <label>KH Parallelversch. (K) – 5156</label>
-          <input id="kh" type="number" step="1" value="0" />
-        </div>
-        <div>
-          <label>TV min (°C) – 5165</label>
-          <input id="tvmin" type="number" step="1" value="20" />
-        </div>
-        <div>
-          <label>TV max (°C) – 5166</label>
-          <input id="tvmax" type="number" step="1" value="95" />
-        </div>
-      </div>
+    <div class="grid-areas">
+      <!-- LEFT: Controls -->
+      <aside class="card p-4 flex flex-col gap-4">
+        <section class="flex flex-col gap-2">
+          <h2 class="text-lg font-semibold">Daten</h2>
+          <label class="label">Trenddatei (*.xml nach DDC Trend 1.1)</label>
+          <input id="fileInput" type="file" accept=".xml" class="input" />
+          <div class="text-xs text-slate-400" id="fileMeta">Noch keine Datei geladen.</div>
+        </section>
 
-      <div class="grid">
-        <div>
-          <label>XPY1 (K) – 5120</label>
-          <input id="xpy1" type="number" step="0.1" value="50" />
-        </div>
-        <div>
-          <label>tN Nachstellzeit (min) – 5106</label>
-          <input id="tn" type="number" step="1" value="3" />
-        </div>
-        <div>
-          <label>Vorhalt D (s) – 5125</label>
-          <input id="dsec" type="number" step="1" value="0" />
-        </div>
-        <div>
-          <label>xw‑Hysterese (K) – 5128</label>
-          <input id="xwh" type="number" step="0.1" value="0" />
-        </div>
-      </div>
-
-      <div class="grid2" style="margin-top:8px">
-        <div>
-          <button class="btn" id="run">Berechnen & Zeichnen</button>
-        </div>
-        <div class="inline">
-          <button class="btn alt" id="exportCsv" title="Zeitreihen exportieren">CSV Export</button>
-          <button class="btn alt" id="curveFit" title="EF/KH aus 2 Punkten berechnen">Heizkurve aus 2 Punkten</button>
-        </div>
-      </div>
-
-      <details style="margin-top:10px">
-        <summary>Heizkurve aus 2 Zielpunkten (optional) – hilft EF/KH zu wählen</summary>
-        <div class="grid3" style="margin-top:8px">
-          <div>
-            <label>TA₁ (°C)</label>
-            <input id="ta1" type="number" step="1" value="15" />
+        <section class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold">Kurvenauswahl</h2>
+            <input id="searchBox" class="input text-sm" placeholder="Suchen… (Adresse/Name)" />
           </div>
-          <div>
-            <label>TVsoll₁ (°C)</label>
-            <input id="tv1" type="number" step="1" value="35" />
+          <div id="seriesList" class="max-h-64 overflow-auto pr-1 text-sm"></div>
+          <div class="flex gap-2">
+            <button id="btnSelectAll" class="btn text-sm">Alle</button>
+            <button id="btnSelectNone" class="btn text-sm">Keine</button>
           </div>
-          <div>
-            <label>Bereich (≥15 °C oder &lt;15 °C)</label>
-            <select id="reg1">
-              <option value=">=15">≥ 15 °C</option>
-              <option value="<15">&lt; 15 °C</option>
+        </section>
+
+        <section class="flex flex-col gap-2">
+          <h2 class="text-lg font-semibold">Anzeige</h2>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="label">Zeitfenster</label>
+              <select id="timeWindow" class="input w-full text-sm">
+                <option value="all">Gesamter Zeitraum</option>
+                <option value="24h">Letzte 24 h</option>
+                <option value="48h">Letzte 48 h</option>
+                <option value="7d">Letzte 7 Tage</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Glättung</label>
+              <input id="smoothing" type="number" class="input w-full text-sm" min="1" max="99" value="1" />
+              <div class="text-xs text-slate-400">Fenster für gleitenden Mittelwert</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-2">
+          <h2 class="text-lg font-semibold">PID‑Parameter (S239)</h2>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="label col-span-2">P‑Band XPY1 [K] (5120)</label>
+            <input id="xp" type="number" step="0.1" min="0.5" class="input" value="50" />
+            <div class="text-xs text-slate-400">Kleiner = stärkere P‑Verstärkung</div>
+
+            <label class="label col-span-2">Nachstellzeit tN [min] (5106)</label>
+            <input id="tn" type="number" step="1" min="1" class="input" value="3" />
+            <div class="text-xs text-slate-400">Größer = schwächerer I‑Anteil</div>
+
+            <label class="label col-span-2">Vorhalt (D) [s] (5125)</label>
+            <input id="td" type="number" step="1" min="0" class="input" value="0" />
+            <div class="text-xs text-slate-400">0 = ohne D‑Anteil</div>
+
+            <label class="label col-span-2">Totzone xwh [K] (5128)</label>
+            <input id="xwh" type="number" step="0.1" min="0" class="input" value="0" />
+          </div>
+
+          <h3 class="text-base font-semibold mt-2">Heizkurve</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="label col-span-2">EF – Steilheit (5155)</label>
+            <input id="ef" type="number" step="0.1" min="0" max="10" class="input" value="1.5" />
+
+            <label class="label col-span-2">KH – Parallelversch. (5156) [K]</label>
+            <input id="kh" type="number" step="1" min="-100" max="100" class="input" value="0" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <label class="label col-span-2">Regeln nach TA (5152)</label>
+            <select id="regTA" class="input text-sm">
+              <option value="0">Nein – TAvz (verzögert)</option>
+              <option value="1">Ja – aktuelle TA</option>
             </select>
+            <label class="label col-span-2">Zeitkonstante TAvz (5168) [h]</label>
+            <input id="tavz" type="number" step="1" min="1" max="99" class="input" value="24" />
           </div>
-        </div>
-        <div class="grid3" style="margin-top:8px">
-          <div>
-            <label>TA₂ (°C)</label>
-            <input id="ta2" type="number" step="1" value="-5" />
-          </div>
-          <div>
-            <label>TVsoll₂ (°C)</label>
-            <input id="tv2" type="number" step="1" value="55" />
-          </div>
-          <div>
-            <label>Bereich (≥15 °C oder &lt;15 °C)</label>
-            <select id="reg2">
-              <option value="<15">&lt; 15 °C</option>
-              <option value=">=15">≥ 15 °C</option>
-            </select>
-          </div>
-        </div>
-        <div class="grid2" style="margin-top:8px">
-          <div class="muted">Berechnung nutzt die S239‑Formeln für Tag: <i>TVsoll = 20 + KH − EF·(TA(vz)−24)</i> bei TA&lt;15°C; bzw. <i>20 + KH − EF·(1,8·TA(vz)−36)</i> bei TA≥15°C.</div>
-          <button class="btn" id="applyFit">EF/KH übernehmen</button>
-        </div>
-      </details>
-    </div>
 
-    <div class="card">
-      <canvas id="chart" width="1100" height="340"></canvas>
-      <div class="kpi">
-        <div><b>Datensätze</b><div id="kpiN" class="muted">–</div></div>
-        <div><b>TA min / max</b><div id="kpiTA" class="muted">–</div></div>
-        <div><b>TVsoll (heute)</b><div id="kpiTV" class="muted">–</div></div>
-        <div><b>Prognose +24h</b><div id="kpiF" class="muted">–</div></div>
-      </div>
+          <button id="btnAnalyse" class="btn w-full">PID‑Analyse & Vorschläge</button>
+        </section>
+      </aside>
+
+      <!-- RIGHT: Charts & Analysis -->
+      <main class="flex flex-col gap-4">
+        <section class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-semibold">Trendkurven</h2>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="chip"><span id="pointCount">0</span> Punkte</span>
+              <span class="chip">Zoom: Scroll • Pan: Shift+Drag</span>
+            </div>
+          </div>
+          <canvas id="chart" height="320"></canvas>
+        </section>
+
+        <section class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-semibold">Analyse & Empfehlung</h2>
+            <button id="btnSimulate" class="btn text-sm">Kurzprognose (30–120 min)</button>
+          </div>
+          <div id="analysis" class="text-sm space-y-3">
+            <div class="text-slate-300">Lade Trends oder wähle Kurven aus. Für PID‑Analyse ideal: Istwert (z. B. Vorlauf/Regelgröße), TVsoll und Y‑Ausgang.</div>
+          </div>
+        </section>
+      </main>
     </div>
   </div>
 
-  <div class="card" style="margin-top:16px">
-    <h3 style="margin:0 0 6px">Vorschläge (heuristisch)</h3>
-    <ul id="advice" class="muted" style="margin-top:6px">
-      <li>Lade zuerst Trend und drücke <b>Berechnen</b>.</li>
-    </ul>
-  </div>
+  <script>
+    // ====== State ======
+    const state = {
+      meta: null,
+      series: new Map(), // key -> { name, address, points: [{t, y}], unit }
+      filteredKeys: [],
+      selectedKeys: new Set(),
+      chart: null,
+    };
 
-  <p class="footer">Hinweis: Diese Datei simuliert die Vorgaben des S239 auf Basis der Außentemperatur‑Trenddaten (TA) und berechnet daraus <i>T<sub>A,vz</sub></i> (1. Ordnung) und <i>TV<sub>soll</sub></i>. Ein vollständiger PID‑Regelkreis inkl. Vorlauf‑Istwert (<i>X</i>) ist ohne zugehörigen Vorlauf‑Trend nicht exakt nachbildbar. Für konkrete PID‑Optimierung bitte Vorlauf‑Ist (<i>5102</i>) und Ventil‑Y (<i>5173</i>) ebenfalls trenden und hier importieren (kann erweitert werden).</p>
-</div>
+    // ====== Utils ======
+    const fmt = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 
-<script>
-/* ========= Util ========= */
-const fmt = new Intl.NumberFormat('de-DE',{maximumFractionDigits:1});
-const dfmt = (d)=>d.toISOString().replace('T',' ').slice(0,16);
+    function movingAverage(arr, w){
+      if(w <= 1) return arr.slice();
+      const out = new Array(arr.length);
+      let sum = 0;
+      for(let i=0;i<arr.length;i++){
+        sum += arr[i].y;
+        if(i >= w) sum -= arr[i-w].y;
+        out[i] = { t: arr[i].t, y: (i < w-1) ? arr[i].y : sum/Math.min(i+1, w) };
+      }
+      return out;
+    }
 
-function parseTrendXML(text){
-  const xml = new DOMParser().parseFromString(text,'text/xml');
-  const objs = [...xml.querySelectorAll('TrendObject')].map(obj=>{
-    const name = obj.querySelector('PlainAddress')?.textContent?.trim() || obj.getAttribute('Address')||'Unbenannt';
-    const entries = [...obj.querySelectorAll('Entry')].map(e=>({
-      t: new Date(e.getAttribute('TimeStamp')),
-      v: parseFloat(e.getAttribute('Value')),
-      s: e.getAttribute('State')
-    })).filter(e=>isFinite(e.v) && e.s==='valid').sort((a,b)=>a.t-b.t);
-    return {name, entries};
-  }).filter(o=>o.entries.length);
-  return objs;
-}
+    function linearRegression(points){
+      // points: [{t: ms, y}]
+      if(points.length < 2) return {m:0, b:points[0]?.y ?? 0};
+      const xs = points.map(p => p.t/1000); // scale to seconds
+      const ys = points.map(p => p.y);
+      const n = xs.length;
+      const sx = xs.reduce((a,b)=>a+b,0);
+      const sy = ys.reduce((a,b)=>a+b,0);
+      const sxx = xs.reduce((a,b)=>a+b*b,0);
+      const sxy = xs.reduce((a,_,i)=>a+xs[i]*ys[i],0);
+      const denom = (n*sxx - sx*sx) || 1e-9;
+      const m = (n*sxy - sx*sy)/denom;
+      const b = (sy - m*sx)/n;
+      return {m,b};
+    }
 
-// First-order lag filter for TAvz with variable dt
-enfunctionTAvz = (ta, tauHrs)=>{
-  const tau = tauHrs*3600; // seconds
-  if(!ta.length) return [];
-  let out = new Array(ta.length);
-  out[0] = ta[0].v; // start with first TA
-  for(let i=1;i<ta.length;i++){
-    const dt = (ta[i].t - ta[i-1].t)/1000; // s
-    const alpha = Math.min(1, Math.max(0, dt/tau));
-    out[i] = out[i-1] + alpha*(ta[i].v - out[i-1]);
-  }
-  return out;
-}
+    function detectOscillation(points){
+      // crude: count peaks via sign changes of derivative
+      if(points.length < 5) return {periodMin:null, oscillates:false};
+      const dy = [];
+      for(let i=1;i<points.length;i++){
+        const dt = (points[i].t - points[i-1].t)/60000; // min
+        if(dt<=0) continue;
+        dy.push((points[i].y - points[i-1].y)/dt);
+      }
+      const sign = v => v>0?1:(v<0?-1:0);
+      let last = sign(dy[0]||0);
+      let crossings = [];
+      let lastIdx = 0;
+      for(let i=1;i<dy.length;i++){
+        const s = sign(dy[i]);
+        if(s!==0 && last!==0 && s!==last){ crossings.push(i); lastIdx = i; }
+        last = s;
+      }
+      if(crossings.length < 3) return {periodMin:null, oscillates:false};
+      const periods = [];
+      for(let i=1;i<crossings.length;i++){
+        const t1 = points[crossings[i-1]].t;
+        const t2 = points[crossings[i]].t;
+        periods.push((t2-t1)/60000);
+      }
+      const avg = periods.reduce((a,b)=>a+b,0)/periods.length;
+      return {periodMin: avg, oscillates: true};
+    }
 
-// TVsoll according to S239 (Tag). Nacht: minus TVabs
-function TVsollFromTA(TAvz, EF, KH, mode, TVabs){
-  const tv = TAvz.map(x=>{
-    const base = (x < 15) ? (20 + KH - EF*(x - 24)) : (20 + KH - EF*(1.8*x - 36));
-    return base;
-  });
-  if(mode==='nacht')
-    return tv.map(x=>x + Number(TVabs||0)); // TVabs is negative in DDC
-  return tv;
-}
+    function computeTVsoll(ta, ef, kh){
+      // TVsollTag = 20 + KH - EF * (TA(vz) -24)     für TA<15°C
+      // TVsollTag = 20 + KH - EF * (1,8*TA(vz)-36)  für TA>=15°C
+      const tv = (ta < 15) ? (20 + kh - ef * (ta - 24)) : (20 + kh - ef * (1.8*ta - 36));
+      return tv;
+    }
 
-function clamp(arr, lo, hi){
-  return arr.map(x=>Math.max(lo, Math.min(hi, x)));
-}
+    function lowpass(series, tauHours){
+      // simple first-order IIR over timestamps
+      if(series.length === 0) return [];
+      const out = [];
+      let y = series[0].y; out.push({t: series[0].t, y});
+      for(let i=1;i<series.length;i++){
+        const dt = (series[i].t - series[i-1].t)/3600000; // hours
+        const a = dt / Math.max(tauHours, 1e-3);
+        const alpha = a/(1+a);
+        y = y + alpha * (series[i].y - y);
+        out.push({t: series[i].t, y});
+      }
+      return out;
+    }
 
-function simpleForecast(arr, hours=24){
-  if(!arr.length) return [];
-  // naive: repeat last 24h profile if verfügbar, sonst hold-last-value
-  const res=[];
-  const last = arr[arr.length-1];
-  const startTime = last.t.getTime();
-  // build hourly
-  for(let h=1; h<=hours; h++){
-    const t = new Date(startTime + h*3600*1000);
-    let v = last.v;
-    // try diurnal repeat
-    const dayAgo = arr.findLast?.(p=> (startTime - p.t.getTime()) >= h*3600*1000 && (startTime - p.t.getTime()) < (h+1)*3600*1000);
-    if(dayAgo) v = dayAgo.v;
-    res.push({t,v});
-  }
-  return res;
-}
+    function chooseRecent(points, window){
+      if(window==='all' || points.length===0) return points;
+      const lastT = points[points.length-1].t;
+      const span = window==='24h'?24*3600000:window==='48h'?48*3600000:7*24*3600000;
+      const from = lastT - span;
+      return points.filter(p=>p.t>=from);
+    }
 
-/* ========= Chart ========= */
-const canvas = document.getElementById('chart');
-const ctx = canvas.getContext('2d');
-function drawChart(series){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // axes
-  const pad=50, w=canvas.width-pad*2, h=canvas.height-pad*2;
-  ctx.strokeStyle='#2a315a'; ctx.lineWidth=1;
-  ctx.strokeRect(pad,pad,w,h);
-  if(!series || !series.length){return}
-  // flatten times and values
-  const all = series.flatMap(s=>s.data);
-  const tmin = Math.min(...all.map(p=>p.t));
-  const tmax = Math.max(...all.map(p=>p.t));
-  const vmin = Math.min(...all.map(p=>p.v));
-  const vmax = Math.max(...all.map(p=>p.v));
-  const x = t=> pad + ( (t - tmin) / (tmax - tmin || 1) ) * w;
-  const y = v=> pad + h - ( (v - vmin) / (vmax - vmin || 1) ) * h;
+    function summarize(arr){
+      if(arr.length===0) return null;
+      const ys = arr.map(p=>p.y);
+      const min = Math.min(...ys), max = Math.max(...ys);
+      const mean = ys.reduce((a,b)=>a+b,0)/ys.length;
+      return {min, max, mean};
+    }
 
-  // grid lines
-  ctx.strokeStyle='#1b2246';
-  ctx.lineWidth=1;
-  ctx.setLineDash([4,4]);
-  for(let i=0;i<=6;i++){
-    const gy = pad + i*h/6;
-    ctx.beginPath(); ctx.moveTo(pad,gy); ctx.lineTo(pad+w,gy); ctx.stroke();
-  }
-  ctx.setLineDash([]);
+    function heuristicTuning(metrics){
+      // metrics: { offset, overshoot, oscillates, periodMin }
+      const rec = [];
+      // P‑Band (XPY1): kleiner = stärker
+      if(metrics.oscillates || metrics.overshoot>0.1){
+        rec.push("XPY1 vergrößern (geringere P‑Verstärkung) für mehr Dämpfung.");
+      } else if(Math.abs(metrics.offset) > 0.5){
+        rec.push("XPY1 verkleinern (stärkere P‑Verstärkung), um den statischen Fehler zu reduzieren.");
+      }
+      // I‑Anteil
+      if(Math.abs(metrics.offset) > 0.5){
+        rec.push("tN verkleinern (stärkerer I‑Anteil), falls anhaltender Offset.");
+      }
+      if(metrics.oscillates){
+        rec.push("tN vergrößern (schwächerer I‑Anteil), falls Integralschwingungen sichtbar.");
+      }
+      // D‑Anteil
+      if(metrics.overshoot>0.1 && !metrics.oscillates){
+        rec.push("Vorhalt (D) leicht erhöhen, um Überschwinger zu dämpfen.");
+      }
+      if(rec.length===0) rec.push("Parameter erscheinen plausibel. Feintuning vorsichtig in kleinen Schritten.");
+      return rec;
+    }
 
-  // labels
-  ctx.fillStyle='#97a0c3'; ctx.font='12px system-ui';
-  ctx.fillText(new Date(tmin).toLocaleString(), pad, canvas.height-8);
-  ctx.fillText(new Date(tmax).toLocaleString(), pad+w-150, canvas.height-8);
-  ctx.fillText(vmax.toFixed(1)+'°C', 6, pad+8);
-  ctx.fillText(vmin.toFixed(1)+'°C', 6, pad+h);
+    // ====== Parsing ======
+    async function parseTrendXML(file){
+      const text = await file.text();
+      const xml = new DOMParser().parseFromString(text, 'application/xml');
+      const hdr = xml.querySelector('Header');
+      state.meta = {
+        central: hdr?.querySelector('CentralName')?.textContent || '–',
+        ts: hdr?.querySelector('TimeStamp')?.textContent || null,
+      };
+      state.series.clear();
+      const objs = Array.from(xml.querySelectorAll('TrendObject'));
+      for(const obj of objs){
+        const address = obj.getAttribute('Address') || '–';
+        const name = obj.querySelector('PlainAddress')?.textContent || address;
+        const entries = Array.from(obj.querySelectorAll('Entry'));
+        const pts = entries.map(e=>({
+          t: new Date(e.getAttribute('TimeStamp')).getTime(),
+          y: Number(e.getAttribute('Value')),
+        })).sort((a,b)=>a.t-b.t);
+        const key = name.trim();
+        state.series.set(key, { name: key, address, points: pts, unit: '' });
+      }
+      state.filteredKeys = [...state.series.keys()].sort();
+      state.selectedKeys = new Set(state.filteredKeys.slice(0, Math.min(3, state.filteredKeys.length)));
+      renderSeriesList();
+      renderChart();
+      document.getElementById('fileMeta').textContent = `${state.meta.central} • ${state.filteredKeys.length} Kurven`;
+    }
 
-  // draw each series
-  const colors = ['#7dc6ff','#a0e47a','#ffb347','#ff6b6b'];
-  series.forEach((s,i)=>{
-    ctx.strokeStyle = colors[i%colors.length];
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    s.data.forEach((p,j)=>{ const xx=x(p.t), yy=y(p.v); j?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); });
-    ctx.stroke();
-    // legend
-    ctx.fillStyle=colors[i%colors.length];
-    ctx.fillRect(pad + i*150, 12, 10,10);
-    ctx.fillStyle='#e9ecff';
-    ctx.fillText(s.name, pad+16 + i*150, 22);
-  });
-}
+    // ====== UI Render ======
+    function renderSeriesList(){
+      const box = document.getElementById('seriesList');
+      const q = (document.getElementById('searchBox').value||'').toLowerCase();
+      const keys = [...state.series.keys()].filter(k=>k.toLowerCase().includes(q));
+      state.filteredKeys = keys;
+      box.innerHTML = '';
+      keys.forEach(k=>{
+        const row = document.createElement('label');
+        row.className = 'flex items-center gap-2 py-1 border-b border-white/5';
+        const cb = document.createElement('input');
+        cb.type='checkbox'; cb.className='accent-cyan-300'; cb.checked = state.selectedKeys.has(k);
+        cb.addEventListener('change', ()=>{ if(cb.checked) state.selectedKeys.add(k); else state.selectedKeys.delete(k); renderChart(); });
+        const span = document.createElement('span'); span.textContent = k; span.title = k;
+        row.appendChild(cb); row.appendChild(span);
+        box.appendChild(row);
+      });
+    }
 
-/* ========= Main ========= */
-let loaded = [];
-const fileInput = document.getElementById('file');
-const seriesSel = document.getElementById('series');
+    function color(idx){
+      // Generate pleasing distinct hues
+      const h = (idx*57) % 360; const s = 70; const l = 55;
+      return `hsl(${h} ${s}% ${l}%)`;
+    }
 
-fileInput.addEventListener('change', async (e)=>{
-  const file = e.target.files?.[0];
-  if(!file) return;
-  const text = await file.text();
-  loaded = parseTrendXML(text);
-  seriesSel.innerHTML = loaded.map((o,i)=>`<option value="${i}">${i+1}. ${o.name}</option>`).join('');
-  // auto-select the first that contains "Außen" or "TA"
-  const idx = loaded.findIndex(o=>/außen|aussentemp|außen|TA/i.test(o.name));
-  seriesSel.value = String(idx>=0?idx:0);
-  document.getElementById('kpiN').textContent = loaded.reduce((s,o)=>s+o.entries.length,0).toLocaleString('de-DE');
-});
+    function renderChart(){
+      const canvas = document.getElementById('chart');
+      const ctx = canvas.getContext('2d');
+      const smoothing = Math.max(1, Number(document.getElementById('smoothing').value||1));
+      const windowSel = document.getElementById('timeWindow').value;
 
-function compute(){
-  if(!loaded.length){alert('Bitte zuerst trend.xml laden.');return;}
-  const idx = Number(seriesSel.value||0);
-  const TA = loaded[idx].entries;
-  const EF = Number(document.getElementById('ef').value);
-  const KH = Number(document.getElementById('kh').value);
-  const TVmin = Number(document.getElementById('tvmin').value);
-  const TVmax = Number(document.getElementById('tvmax').value);
-  const tAvz = Number(document.getElementById('tavz').value);
-  const TVabs = Number(document.getElementById('tvabs').value);
-  const mode = document.getElementById('mode').value;
+      const datasets = [];
+      let totalPoints = 0;
+      [...state.selectedKeys].forEach((k, i)=>{
+        const raw = state.series.get(k)?.points || [];
+        const win = chooseRecent(raw, windowSel);
+        const pts = movingAverage(win, smoothing);
+        totalPoints += pts.length;
+        datasets.push({
+          label: k,
+          data: pts.map(p=>({x: p.t, y: p.y})),
+          borderWidth: 2,
+          tension: 0.2,
+          borderColor: color(i),
+          pointRadius: 0,
+        });
+      });
+      document.getElementById('pointCount').textContent = totalPoints;
 
-  const TAvzArr = enfunctionTAvz(TA, tAvz);
-  const TVsoll = TVsollFromTA(TAvzArr, EF, KH, mode, TVabs);
-  const TVsollClamped = clamp(TVsoll, TVmin, TVmax);
+      if(state.chart){ state.chart.destroy(); }
+      state.chart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'x', intersect: false },
+          parsing: false,
+          scales: {
+            x: {
+              type: 'time',
+              adapters: { date: {} },
+              time: { unit: 'hour' },
+              grid: { color: 'rgba(255,255,255,.06)' },
+              ticks: { color: '#c9d4e5' }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,.06)' },
+              ticks: { color: '#c9d4e5' }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#e6edf5' } },
+            tooltip: {
+              callbacks: {
+                label: (ctx)=> `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
+              }
+            },
+            zoom: {}
+          }
+        }
+      });
+    }
 
-  const dataTA = TA.map(p=>({t:+p.t, v:p.v}));
-  const dataTAvz = TA.map((p,i)=>({t:+p.t, v:TAvzArr[i]}));
-  const dataTV = TA.map((p,i)=>({t:+p.t, v:TVsollClamped[i]}));
+    // ====== Analysis ======
+    function getSeriesByNameContains(fragment){
+      fragment = fragment.toLowerCase();
+      for(const [k,v] of state.series){ if(k.toLowerCase().includes(fragment)) return v; }
+      return null;
+    }
 
-  drawChart([
-    {name:'TA', data:dataTA},
-    {name:'TA_vz', data:dataTAvz},
-    {name:'TV_soll', data:dataTV}
-  ]);
+    function analysePID(){
+      const xp = Number(document.getElementById('xp').value);
+      const tn = Number(document.getElementById('tn').value);
+      const td = Number(document.getElementById('td').value);
+      const xwh = Number(document.getElementById('xwh').value);
+      const ef = Number(document.getElementById('ef').value);
+      const kh = Number(document.getElementById('kh').value);
+      const regTA = Number(document.getElementById('regTA').value);
+      const tavz = Number(document.getElementById('tavz').value);
 
-  // KPIs
-  const TAvals = TA.map(p=>p.v);
-  const TAmin = Math.min(...TAvals), TAmax = Math.max(...TAvals);
-  document.getElementById('kpiTA').textContent = `${fmt.format(TAmin)} / ${fmt.format(TAmax)} °C`;
-  document.getElementById('kpiTV').textContent = dataTV.length? `${fmt.format(dataTV.at(-1).v)} °C @ ${new Date(dataTV.at(-1).t).toLocaleString()}` : '–';
+      // Try to infer typical variable names if present
+      const pv = getSeriesByNameContains('Regelgröße') || getSeriesByNameContains('Vorlauf') || getSeriesByNameContains('TV');
+      const ta = getSeriesByNameContains('Außentemperatur') || getSeriesByNameContains('Aussentemperatur');
+      const y = getSeriesByNameContains('Heizventil') || getSeriesByNameContains('YH1') || getSeriesByNameContains('Y');
+      const tvsollSeries = getSeriesByNameContains('TVSoll aktuell') || getSeriesByNameContains('TVsoll');
 
-  // Forecast with naive +24h diurnal repeat
-  const TAf = simpleForecast(TA, 24);
-  const TAvzf = enfunctionTAvz([...TA, ...TAf], tAvz).slice(TA.length);
-  const TVsollf = TVsollFromTA(TAvzf, EF, KH, mode, TVabs).map(v=>Math.max(TVmin, Math.min(TVmax, v)));
-  const forecastSeries = TAf.map((p,i)=>({t:+p.t, v:TVsollf[i]}));
-  document.getElementById('kpiF').textContent = forecastSeries.length? `${fmt.format(forecastSeries.at(-1).v)} °C` : '–';
+      let tvsoll = null;
+      if(tvsollSeries){
+        tvsoll = tvsollSeries.points;
+      } else if(ta){
+        const taPts = regTA ? ta.points : lowpass(ta.points, tavz);
+        tvsoll = taPts.map(p=>({t:p.t, y: computeTVsoll(p.y, ef, kh)}));
+      }
 
-  // Advice (heuristic, based on envelope)
-  const adv = [];
-  const warmRange = TVsollClamped.filter(v=>!isNaN(v));
-  const medianTV = warmRange.length ? warmRange.slice().sort((a,b)=>a-b)[Math.floor(warmRange.length/2)] : NaN;
-  if(TAmin > 10 && medianTV > 45) adv.push(`Bei milder Witterung (TAmin ${fmt.format(TAmin)}°C) scheint TVsoll hoch (${fmt.format(medianTV)}°C). \u2192 EF leicht <b>reduzieren</b> (flachere Kurve) oder KH <b>senken</b>.`);
-  if(TAmin < 0 && (Math.max(...TVsollClamped) < 55)) adv.push(`Bei Frost könnte TVsoll zu niedrig sein. \u2192 EF <b>erhöhen</b> oder KH <b>anheben</b>, ggf. TVmax prüfen.`);
-  if(tAvz>36) adv.push(`tAvz=${tAvz}h ist sehr träge. \u2192 Für agileres Verhalten <b>verringern</b> (z.B. 12–24h).`);
-  if(tAvz<6) adv.push(`tAvz=${tAvz}h ist sehr kurz. \u2192 Gefahr nervöser Sollwertsprünge, ggf. <b>erhöhen</b> (12–24h).`);
-  const modeTxt = (mode==='nacht')? `Nachtabsenkung aktiv (${TVabs} K).` : `Tagbetrieb.`;
-  adv.push(modeTxt + ' Prüfe Komfort/Energie nach 1–2 Tagen und justiere in kleinen Schritten.');
-  document.getElementById('advice').innerHTML = adv.map(x=>`<li>${x}</li>`).join('');
+      const pvPts = pv?.points || [];
+      const yPts  = y?.points  || [];
 
-  // store last for export
-  window._lastCalc = {TA:dataTA, TAvz:dataTAvz, TVsoll:dataTV, TVsollForecast:forecastSeries};
-}
+      const windowSel = document.getElementById('timeWindow').value;
+      const pvWin = chooseRecent(pvPts, windowSel);
+      const yWin  = chooseRecent(yPts, windowSel);
+      const tvWin = chooseRecent(tvsoll||[], windowSel);
 
-// CSV export
-function toCSV(){
-  if(!window._lastCalc){alert('Noch nichts berechnet.');return}
-  const rows = ['Zeit;TA;TA_vz;TV_soll;TV_soll_+24h'];
-  const times = new Set([...window._lastCalc.TA.map(p=>p.t), ...window._lastCalc.TVsollForecast.map(p=>p.t)]);
-  const byTime = t=>({
-    TA: window._lastCalc.TA.find(p=>p.t===t)?.v,
-    TAvz: window._lastCalc.TAvz.find(p=>p.t===t)?.v,
-    TV: window._lastCalc.TVsoll.find(p=>p.t===t)?.v,
-    TVf: window._lastCalc.TVsollForecast.find(p=>p.t===t)?.v,
-  });
-  [...times].sort((a,b)=>a-b).forEach(t=>{
-    const r = byTime(t);
-    rows.push(`${new Date(t).toISOString()};${r.TA??''};${r.TAvz??''};${r.TV??''};${r.TVf??''}`)
-  });
-  const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='s239_analyse.csv'; a.click(); URL.revokeObjectURL(url);
-}
+      // Align by timestamps (nearest neighbor)
+      function resample(ref, other){
+        if(!ref || !other || ref.length===0 || other.length===0) return [];
+        let j=0; const out=[]; const n=other.length;
+        for(const p of ref){
+          while(j<n-1 && Math.abs(other[j+1].t - p.t) < Math.abs(other[j].t - p.t)) j++;
+          out.push({t:p.t, y: other[j].y});
+        }
+        return out;
+      }
+      const yOnPv = resample(pvWin, yWin);
+      const tvOnPv = resample(pvWin, tvWin);
 
-// Fit EF/KH from two points
-function solveEFKH(points){
-  // For each point, map to linear form: TVsoll = 20 + KH - EF * m(TA)
-  // where m(ta) = (ta-24) for ta<15, else (1.8*ta - 36)
-  // => TVsoll - 20 = KH - EF * m
-  // Two equations -> solve for EF and KH.
-  const m = p => (p.region === '<15') ? (p.ta - 24) : (1.8*p.ta - 36);
-  const y1 = points[0].tv - 20, y2 = points[1].tv - 20;
-  const m1 = m(points[0]), m2 = m(points[1]);
-  const denom = (m2 - m1);
-  if(Math.abs(denom) < 1e-6) return null;
-  const EF = (y1 - y2) / denom;
-  const KH = y1 + EF*m1;
-  return {EF, KH};
-}
+      // Metrics
+      let offset=0, overshoot=0, osc=false, per=null;
+      if(tvOnPv.length && pvWin.length){
+        const lastPv = pvWin[pvWin.length-1].y;
+        const lastSp = tvOnPv[tvOnPv.length-1].y;
+        offset = lastPv - lastSp; // K
+        const s = summarize(pvWin);
+        if(s){ overshoot = Math.max(0, (s.max - lastSp) / Math.max(1, Math.abs(lastSp))); }
+        const oscInfo = detectOscillation(pvWin);
+        osc = oscInfo.oscillates; per = oscInfo.periodMin;
+      }
+      const kP = 100/Math.max(0.0001, xp); // heuristic conversion (Y% per K)
 
-// wiring
- document.getElementById('run').addEventListener('click', compute);
- document.getElementById('exportCsv').addEventListener('click', toCSV);
- document.getElementById('curveFit').addEventListener('click', ()=>{
-   document.querySelector('details').open = true;
- });
- document.getElementById('applyFit').addEventListener('click', ()=>{
-   const p1 = {ta:Number(ta1.value), tv:Number(tv1.value), region:reg1.value};
-   const p2 = {ta:Number(ta2.value), tv:Number(tv2.value), region:reg2.value};
-   const sol = solveEFKH([p1,p2]);
-   if(!sol){alert('Punkte ungeeignet – wähle zwei unterschiedliche Bereiche/Temperaturen.');return}
-   document.getElementById('ef').value = sol.EF.toFixed(2);
-   document.getElementById('kh').value = sol.KH.toFixed(1);
-   compute();
- });
-</script>
+      const metrics = { offset, overshoot, oscillates: osc, periodMin: per, kP, tn, td, xwh };
+      const recommendations = heuristicTuning(metrics);
+
+      const lines = [
+        `<div class='text-slate-300'>Erkannte Kurven: ${pv?"Ist/PV":"–"}, ${tvsoll?"TVsoll":"–"}, ${y?"Y-Ausgang":"–"}</div>`,
+        `<div><span class='k'>Offset</span> Ist – Soll: <b>${offset.toFixed(2)} K</b></div>`,
+        `<div><span class='k'>Überschwingen</span>: <b>${(overshoot*100).toFixed(1)}%</b>${per?`, vermutete Periodendauer ~ <b>${per.toFixed(0)} min</b>`:''}</div>`,
+        `<div class='mt-2'><span class='k'>Gegenwärtige Parametrierung</span>: XPY1=${xp} K, tN=${tn} min, D=${td} s, xwh=${xwh} K → angenäherte P‑Verstärkung kP≈${kP.toFixed(2)} %/K</div>`,
+        `<div class='mt-2'><span class='k'>Vorschläge (heuristisch)</span><ul class='list-disc ml-6 mt-1'>${recommendations.map(r=>`<li>${r}</li>`).join('')}</ul></div>`
+      ];
+
+      document.getElementById('analysis').innerHTML = lines.join('');
+    }
+
+    function shortForecast(){
+      // Take the most selected series as reference and project 2h ahead
+      const key = [...state.selectedKeys][0];
+      if(!key){ alert('Bitte eine Kurve auswählen.'); return; }
+      const pts = state.series.get(key)?.points || [];
+      const sel = chooseRecent(pts, '24h');
+      if(sel.length < 10){ alert('Zu wenige Punkte für Prognose.'); return; }
+      const last = sel[sel.length-1].t;
+      const recent = sel.slice(-Math.min(120, Math.floor(sel.length*0.6)));
+      const {m,b} = linearRegression(recent);
+      const f = [];
+      for(let i=5;i<=120;i+=5){
+        const t = last + i*60000; // minutes ahead
+        const y = m*(t/1000) + b;
+        f.push({x: t, y});
+      }
+      // add as dashed dataset
+      state.chart.data.datasets = state.chart.data.datasets.filter(d=>!d._isForecast);
+      state.chart.data.datasets.push({
+        label: key + ' – Prognose',
+        data: f,
+        borderWidth: 2,
+        borderDash: [6,6],
+        tension: 0,
+        pointRadius: 0,
+        borderColor: 'rgba(94,234,212,.9)',
+        _isForecast: true,
+      });
+      state.chart.update();
+    }
+
+    // ====== Events ======
+    document.getElementById('fileInput').addEventListener('change', (e)=>{
+      const file = e.target.files?.[0];
+      if(file) parseTrendXML(file);
+    });
+    document.getElementById('searchBox').addEventListener('input', renderSeriesList);
+    document.getElementById('smoothing').addEventListener('change', renderChart);
+    document.getElementById('timeWindow').addEventListener('change', renderChart);
+    document.getElementById('btnSelectAll').addEventListener('click', ()=>{ state.filteredKeys.forEach(k=>state.selectedKeys.add(k)); renderSeriesList(); renderChart(); });
+    document.getElementById('btnSelectNone').addEventListener('click', ()=>{ state.selectedKeys.clear(); renderSeriesList(); renderChart(); });
+    document.getElementById('btnAnalyse').addEventListener('click', analysePID);
+    document.getElementById('btnSimulate').addEventListener('click', shortForecast);
+    document.getElementById('btnExportPNG').addEventListener('click', ()=>{
+      const a = document.createElement('a');
+      a.href = document.getElementById('chart').toDataURL('image/png');
+      a.download = 'trend-chart.png'; a.click();
+    });
+
+    // ====== Demo: enable drop of XML onto page ======
+    document.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+    document.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      const file = [...(e.dataTransfer?.files||[])].find(f=>f.name.toLowerCase().endsWith('.xml'));
+      if(file) parseTrendXML(file);
+    });
+  </script>
 </body>
 </html>
