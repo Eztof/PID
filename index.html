@@ -8,6 +8,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js for graphs -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Time adapter for Chart.js time scale -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <!-- Zoom/Pan plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
   <!-- Simple icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -371,7 +375,6 @@
           scales: {
             x: {
               type: 'time',
-              adapters: { date: {} },
               time: { unit: 'hour' },
               grid: { color: 'rgba(255,255,255,.06)' },
               ticks: { color: '#c9d4e5' }
@@ -388,7 +391,10 @@
                 label: (ctx)=> `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
               }
             },
-            zoom: {}
+            zoom: {
+              zoom: { wheel: { enabled: true }, mode: 'x' },
+              pan: { enabled: true, modifierKey: 'shift', mode: 'x' }
+            }
           }
         }
       });
