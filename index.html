@@ -392,7 +392,14 @@
               }
             },
             zoom: {
-              zoom: { wheel: { enabled: true }, mode: 'x' },
+              pan: { enabled: true, mode: 'x', modifierKey: 'shift' },
+              zoom: {
+                wheel: { enabled: true, modifierKey: 'ctrl' }, // Zoom nur mit STRG + Scroll
+                pinch: { enabled: false }, // Pinch-Zoom aus
+                drag: { enabled: false }, // Drag-Zoom aus
+                mode: 'x' // ausschließlich X-Achse
+              }
+            }, mode: 'x' },
               pan: { enabled: true, modifierKey: 'shift', mode: 'x' }
             }
           }
