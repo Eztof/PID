@@ -402,7 +402,7 @@
             }, mode: 'x' },
               pan: { enabled: true, modifierKey: 'shift', mode: 'x' }
             }
-          }
+          )
         }
       });
     }
@@ -480,7 +480,7 @@
         `<div><span class='k'>Offset</span> Ist – Soll: <b>${offset.toFixed(2)} K</b></div>`,
         `<div><span class='k'>Überschwingen</span>: <b>${(overshoot*100).toFixed(1)}%</b>${per?`, vermutete Periodendauer ~ <b>${per.toFixed(0)} min</b>`:''}</div>`,
         `<div class='mt-2'><span class='k'>Gegenwärtige Parametrierung</span>: XPY1=${xp} K, tN=${tn} min, D=${td} s, xwh=${xwh} K → angenäherte P‑Verstärkung kP≈${kP.toFixed(2)} %/K</div>`,
-        `<div class='mt-2'><span class='k'>Vorschläge (heuristisch)</span><ul class='list-disc ml-6 mt-1'>${recommendations.map(r=>`<li>${r}</li>`).join('')}</ul></div>`
+        `<div class='mt-2'><span class='k'>Vorschläge (heuristisch)</span><ul class='list-disc ml-6 mt-1'>${recommendations.map(r=>'<li>'+r+'</li>').join('')}</ul></div>`
       ];
 
       document.getElementById('analysis').innerHTML = lines.join('');
