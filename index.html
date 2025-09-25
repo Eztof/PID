@@ -1,82 +1,428 @@
 <!doctype html>
-<div class="ml-auto text-sm flex gap-2">
-<button id="resetZoomBtn" class="px-3 py-1 rounded-lg border">Zoom zurücksetzen</button>
-<label class="flex items-center gap-2"><input id="downsampleToggle" type="checkbox" class="scale-110" /> <span>Downsampling</span></label>
-</div>
-</div>
-<canvas id="trendChart" height="120"></canvas>
-</section>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>S239 Heizungsregler – Trend‑Analyzer & Parameter‑Helfer</title>
+  <style>
+    :root{--bg:#0b1020;--card:#121938;--muted:#97a0c3;--text:#e9ecff;--accent:#7dc6ff;--grid:#1b2246;--ok:#33d69f;--warn:#ffb347;--err:#ff6b6b}
+    html,body{height:100%}
+    body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1200px;margin:0 auto;padding:20px}
+    h1{font-size:24px;margin:0 0 12px}
+    .row{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+    .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input,select,button,textarea{width:100%;box-sizing:border-box;background:#12172f;color:var(--text);border:1px solid #2a315a;border-radius:10px;padding:10px}
+    input[type="number"]{text-align:right}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    .muted{color:var(--muted)}
+    .btn{cursor:pointer;background:linear-gradient(180deg,#2b7cff,#0bbef5);border:none}
+    .btn.alt{background:#1b2246}
+    canvas{width:100%;height:340px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:12px}
+    .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 0}
+    .kpi>div{background:#0f1531;border:1px solid #232a52;border-radius:12px;padding:10px}
+    .flag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;margin-left:6px}
+    .ok{background:rgba(51,214,159,.14);color:var(--ok)}
+    .warn{background:rgba(255,179,71,.14);color:var(--warn)}
+    .err{background:rgba(255,107,107,.14);color:var(--err)}
+    details{background:#0f1531;border:1px solid #232a52;border-radius:12px;padding:10px}
+    summary{cursor:pointer}
+    .footer{margin-top:14px;font-size:12px;color:var(--muted)}
+    .inline{display:flex;gap:8px;align-items:center}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>S239 Heizungsregler – Trend‑Analyzer & Parameter‑Helfer</h1>
+  <p class="muted">Lade Deinen <b>trend.xml</b> Export (DDC4000) und trage die aktuellen S239‑Parameter ein. Die Seite berechnet <i>T<sub>A,vz</sub></i>, den <i>TV<sub>soll</sub></i> gemäß Heizkurve (Tag/Nacht), gibt eine einfache Prognose und schlägt Parameter‑Anpassungen vor. Läuft komplett lokal – keine Datenübertragung.</p>
 
+  <div class="row">
+    <div class="card">
+      <div class="grid2">
+        <div>
+          <label>trend.xml laden</label>
+          <input id="file" type="file" accept=".xml" />
+        </div>
+        <div>
+          <label>Trend‑Objekt</label>
+          <select id="series"></select>
+        </div>
+      </div>
 
-<!-- Regler-Tuner -->
-<section class="bg-white rounded-2xl shadow p-4 md:p-6 space-y-4">
-<h2 class="text-xl font-semibold">4) Regler‑Tuner</h2>
-<div class="grid md:grid-cols-3 gap-6">
-<div class="md:col-span-2 space-y-4">
-<div class="grid sm:grid-cols-2 gap-4">
-<label class="block">
-<span class="block text-sm font-medium">Prozessvariable (PV)</span>
-<select id="pvSelect" class="w-full rounded-xl border px-3 py-2"></select>
-<small class="text-slate-500">Wähle eine Kurve als Regelgröße (z. B. Vorlauf‑Ist).</small>
-</label>
-<label class="block">
-<span class="block text-sm font-medium">Sollwert (optional)</span>
-<input id="setpointInput" type="number" step="0.01" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 45.0" />
-<small class="text-slate-500">Falls TVsoll bekannt ist, hier eintragen.</small>
-</label>
+      <div class="grid3" style="margin-top:8px">
+        <div>
+          <label>Regelzustand</label>
+          <select id="mode">
+            <option value="tag">Regeln Tag</option>
+            <option value="nacht">Regeln Nacht</option>
+          </select>
+        </div>
+        <div>
+          <label>t<sub>Avz</sub> (h) – 5168</label>
+          <input id="tavz" type="number" step="1" min="1" value="24" />
+        </div>
+        <div>
+          <label>TV abs (K, Nacht) – 5167</label>
+          <input id="tvabs" type="number" step="1" value="-12" />
+        </div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>EF Heizkurve – 5155</label>
+          <input id="ef" type="number" step="0.1" min="0" value="1.5" />
+        </div>
+        <div>
+          <label>KH Parallelversch. (K) – 5156</label>
+          <input id="kh" type="number" step="1" value="0" />
+        </div>
+        <div>
+          <label>TV min (°C) – 5165</label>
+          <input id="tvmin" type="number" step="1" value="20" />
+        </div>
+        <div>
+          <label>TV max (°C) – 5166</label>
+          <input id="tvmax" type="number" step="1" value="95" />
+        </div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>XPY1 (K) – 5120</label>
+          <input id="xpy1" type="number" step="0.1" value="50" />
+        </div>
+        <div>
+          <label>tN Nachstellzeit (min) – 5106</label>
+          <input id="tn" type="number" step="1" value="3" />
+        </div>
+        <div>
+          <label>Vorhalt D (s) – 5125</label>
+          <input id="dsec" type="number" step="1" value="0" />
+        </div>
+        <div>
+          <label>xw‑Hysterese (K) – 5128</label>
+          <input id="xwh" type="number" step="0.1" value="0" />
+        </div>
+      </div>
+
+      <div class="grid2" style="margin-top:8px">
+        <div>
+          <button class="btn" id="run">Berechnen & Zeichnen</button>
+        </div>
+        <div class="inline">
+          <button class="btn alt" id="exportCsv" title="Zeitreihen exportieren">CSV Export</button>
+          <button class="btn alt" id="curveFit" title="EF/KH aus 2 Punkten berechnen">Heizkurve aus 2 Punkten</button>
+        </div>
+      </div>
+
+      <details style="margin-top:10px">
+        <summary>Heizkurve aus 2 Zielpunkten (optional) – hilft EF/KH zu wählen</summary>
+        <div class="grid3" style="margin-top:8px">
+          <div>
+            <label>TA₁ (°C)</label>
+            <input id="ta1" type="number" step="1" value="15" />
+          </div>
+          <div>
+            <label>TVsoll₁ (°C)</label>
+            <input id="tv1" type="number" step="1" value="35" />
+          </div>
+          <div>
+            <label>Bereich (≥15 °C oder &lt;15 °C)</label>
+            <select id="reg1">
+              <option value=">=15">≥ 15 °C</option>
+              <option value="<15">&lt; 15 °C</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid3" style="margin-top:8px">
+          <div>
+            <label>TA₂ (°C)</label>
+            <input id="ta2" type="number" step="1" value="-5" />
+          </div>
+          <div>
+            <label>TVsoll₂ (°C)</label>
+            <input id="tv2" type="number" step="1" value="55" />
+          </div>
+          <div>
+            <label>Bereich (≥15 °C oder &lt;15 °C)</label>
+            <select id="reg2">
+              <option value="<15">&lt; 15 °C</option>
+              <option value=">=15">≥ 15 °C</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid2" style="margin-top:8px">
+          <div class="muted">Berechnung nutzt die S239‑Formeln für Tag: <i>TVsoll = 20 + KH − EF·(TA(vz)−24)</i> bei TA&lt;15°C; bzw. <i>20 + KH − EF·(1,8·TA(vz)−36)</i> bei TA≥15°C.</div>
+          <button class="btn" id="applyFit">EF/KH übernehmen</button>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <canvas id="chart" width="1100" height="340"></canvas>
+      <div class="kpi">
+        <div><b>Datensätze</b><div id="kpiN" class="muted">–</div></div>
+        <div><b>TA min / max</b><div id="kpiTA" class="muted">–</div></div>
+        <div><b>TVsoll (heute)</b><div id="kpiTV" class="muted">–</div></div>
+        <div><b>Prognose +24h</b><div id="kpiF" class="muted">–</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3 style="margin:0 0 6px">Vorschläge (heuristisch)</h3>
+    <ul id="advice" class="muted" style="margin-top:6px">
+      <li>Lade zuerst Trend und drücke <b>Berechnen</b>.</li>
+    </ul>
+  </div>
+
+  <p class="footer">Hinweis: Diese Datei simuliert die Vorgaben des S239 auf Basis der Außentemperatur‑Trenddaten (TA) und berechnet daraus <i>T<sub>A,vz</sub></i> (1. Ordnung) und <i>TV<sub>soll</sub></i>. Ein vollständiger PID‑Regelkreis inkl. Vorlauf‑Istwert (<i>X</i>) ist ohne zugehörigen Vorlauf‑Trend nicht exakt nachbildbar. Für konkrete PID‑Optimierung bitte Vorlauf‑Ist (<i>5102</i>) und Ventil‑Y (<i>5173</i>) ebenfalls trenden und hier importieren (kann erweitert werden).</p>
 </div>
 
+<script>
+/* ========= Util ========= */
+const fmt = new Intl.NumberFormat('de-DE',{maximumFractionDigits:1});
+const dfmt = (d)=>d.toISOString().replace('T',' ').slice(0,16);
 
-<div class="grid lg:grid-cols-3 gap-4">
-<div class="space-y-2">
-<h3 class="font-medium">Aktuelle Reglerwerte</h3>
-<label class="block text-sm">XPY1 (P‑Band K)<input id="xpInput" type="number" step="0.1" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 50" /></label>
-<label class="block text-sm">tN (I‑Zeit, min)<input id="tnInput" type="number" step="0.1" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 3" /></label>
-<label class="block text-sm">Vorhalt (D‑Zeit, s)<input id="dInput" type="number" step="1" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 0" /></label>
-<label class="block text-sm">xwh (Totband, K)<input id="xwhInput" type="number" step="0.1" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 0" /></label>
-</div>
-<div class="space-y-2">
-<h3 class="font-medium">Grenzen & Heizkurve</h3>
-<label class="block text-sm">TV min (°C)<input id="tvminInput" type="number" class="w-full rounded-xl border px-3 py-2" placeholder="20" /></label>
-<label class="block text-sm">TV max (°C)<input id="tvmaxInput" type="number" class="w-full rounded-xl border px-3 py-2" placeholder="95" /></label>
-<label class="block text-sm">EF (Steilheit)<input id="efInput" type="number" step="0.1" class="w-full rounded-xl border px-3 py-2" placeholder="1.5" /></label>
-<label class="block text-sm">KH (Parallelversch.)<input id="khInput" type="number" step="1" class="w-full rounded-xl border px-3 py-2" placeholder="0" /></label>
-</div>
-<div class="space-y-2">
-<h3 class="font-medium">Aktionen</h3>
-<button id="analyzeBtn" class="w-full px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium">Analysieren</button>
-<button id="applySuggestionsBtn" class="w-full px-4 py-2 rounded-xl bg-amber-600 text-white font-medium" disabled>Vorschläge übernehmen</button>
-<button id="exportCsvBtn" class="w-full px-4 py-2 rounded-xl bg-slate-900 text-white font-medium" disabled>Als CSV exportieren</button>
-</div>
-</div>
-</div>
+function parseTrendXML(text){
+  const xml = new DOMParser().parseFromString(text,'text/xml');
+  const objs = [...xml.querySelectorAll('TrendObject')].map(obj=>{
+    const name = obj.querySelector('PlainAddress')?.textContent?.trim() || obj.getAttribute('Address')||'Unbenannt';
+    const entries = [...obj.querySelectorAll('Entry')].map(e=>({
+      t: new Date(e.getAttribute('TimeStamp')),
+      v: parseFloat(e.getAttribute('Value')),
+      s: e.getAttribute('State')
+    })).filter(e=>isFinite(e.v) && e.s==='valid').sort((a,b)=>a.t-b.t);
+    return {name, entries};
+  }).filter(o=>o.entries.length);
+  return objs;
+}
 
+// First-order lag filter for TAvz with variable dt
+enfunctionTAvz = (ta, tauHrs)=>{
+  const tau = tauHrs*3600; // seconds
+  if(!ta.length) return [];
+  let out = new Array(ta.length);
+  out[0] = ta[0].v; // start with first TA
+  for(let i=1;i<ta.length;i++){
+    const dt = (ta[i].t - ta[i-1].t)/1000; // s
+    const alpha = Math.min(1, Math.max(0, dt/tau));
+    out[i] = out[i-1] + alpha*(ta[i].v - out[i-1]);
+  }
+  return out;
+}
 
-<aside class="bg-slate-50 rounded-xl border p-4 space-y-3">
-<h3 class="font-medium">Analyse‑Ergebnis</h3>
-<ul id="analysisSummary" class="text-sm space-y-2 list-disc pl-5"></ul>
-<div id="suggestionsBox" class="hidden">
-<h4 class="font-medium mt-2">Vorgeschlagene Werte</h4>
-<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-<div>XPY1</div><div id="suggXP"></div>
-<div>tN</div><div id="suggTN"></div>
-<div>Vorhalt</div><div id="suggD"></div>
-<div>xwh</div><div id="suggXWH"></div>
-</div>
-</div>
-</aside>
-</div>
-</section>
+// TVsoll according to S239 (Tag). Nacht: minus TVabs
+function TVsollFromTA(TAvz, EF, KH, mode, TVabs){
+  const tv = TAvz.map(x=>{
+    const base = (x < 15) ? (20 + KH - EF*(x - 24)) : (20 + KH - EF*(1.8*x - 36));
+    return base;
+  });
+  if(mode==='nacht')
+    return tv.map(x=>x + Number(TVabs||0)); // TVabs is negative in DDC
+  return tv;
+}
 
+function clamp(arr, lo, hi){
+  return arr.map(x=>Math.max(lo, Math.min(hi, x)));
+}
 
-<footer class="text-xs text-slate-500">
-<p>Hinweis: Begriffe/Parameter gemäß DDC4000 Grundprogramm Heizung (S239). Siehe Projekt‑README.</p>
-</footer>
-</main>
+function simpleForecast(arr, hours=24){
+  if(!arr.length) return [];
+  // naive: repeat last 24h profile if verfügbar, sonst hold-last-value
+  const res=[];
+  const last = arr[arr.length-1];
+  const startTime = last.t.getTime();
+  // build hourly
+  for(let h=1; h<=hours; h++){
+    const t = new Date(startTime + h*3600*1000);
+    let v = last.v;
+    // try diurnal repeat
+    const dayAgo = arr.findLast?.(p=> (startTime - p.t.getTime()) >= h*3600*1000 && (startTime - p.t.getTime()) < (h+1)*3600*1000);
+    if(dayAgo) v = dayAgo.v;
+    res.push({t,v});
+  }
+  return res;
+}
 
+/* ========= Chart ========= */
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+function drawChart(series){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // axes
+  const pad=50, w=canvas.width-pad*2, h=canvas.height-pad*2;
+  ctx.strokeStyle='#2a315a'; ctx.lineWidth=1;
+  ctx.strokeRect(pad,pad,w,h);
+  if(!series || !series.length){return}
+  // flatten times and values
+  const all = series.flatMap(s=>s.data);
+  const tmin = Math.min(...all.map(p=>p.t));
+  const tmax = Math.max(...all.map(p=>p.t));
+  const vmin = Math.min(...all.map(p=>p.v));
+  const vmax = Math.max(...all.map(p=>p.v));
+  const x = t=> pad + ( (t - tmin) / (tmax - tmin || 1) ) * w;
+  const y = v=> pad + h - ( (v - vmin) / (vmax - vmin || 1) ) * h;
 
-<script src="js/analyzer.js"></script>
-<script src="js/display.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  // grid lines
+  ctx.strokeStyle='#1b2246';
+  ctx.lineWidth=1;
+  ctx.setLineDash([4,4]);
+  for(let i=0;i<=6;i++){
+    const gy = pad + i*h/6;
+    ctx.beginPath(); ctx.moveTo(pad,gy); ctx.lineTo(pad+w,gy); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // labels
+  ctx.fillStyle='#97a0c3'; ctx.font='12px system-ui';
+  ctx.fillText(new Date(tmin).toLocaleString(), pad, canvas.height-8);
+  ctx.fillText(new Date(tmax).toLocaleString(), pad+w-150, canvas.height-8);
+  ctx.fillText(vmax.toFixed(1)+'°C', 6, pad+8);
+  ctx.fillText(vmin.toFixed(1)+'°C', 6, pad+h);
+
+  // draw each series
+  const colors = ['#7dc6ff','#a0e47a','#ffb347','#ff6b6b'];
+  series.forEach((s,i)=>{
+    ctx.strokeStyle = colors[i%colors.length];
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    s.data.forEach((p,j)=>{ const xx=x(p.t), yy=y(p.v); j?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); });
+    ctx.stroke();
+    // legend
+    ctx.fillStyle=colors[i%colors.length];
+    ctx.fillRect(pad + i*150, 12, 10,10);
+    ctx.fillStyle='#e9ecff';
+    ctx.fillText(s.name, pad+16 + i*150, 22);
+  });
+}
+
+/* ========= Main ========= */
+let loaded = [];
+const fileInput = document.getElementById('file');
+const seriesSel = document.getElementById('series');
+
+fileInput.addEventListener('change', async (e)=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+  const text = await file.text();
+  loaded = parseTrendXML(text);
+  seriesSel.innerHTML = loaded.map((o,i)=>`<option value="${i}">${i+1}. ${o.name}</option>`).join('');
+  // auto-select the first that contains "Außen" or "TA"
+  const idx = loaded.findIndex(o=>/außen|aussentemp|außen|TA/i.test(o.name));
+  seriesSel.value = String(idx>=0?idx:0);
+  document.getElementById('kpiN').textContent = loaded.reduce((s,o)=>s+o.entries.length,0).toLocaleString('de-DE');
+});
+
+function compute(){
+  if(!loaded.length){alert('Bitte zuerst trend.xml laden.');return;}
+  const idx = Number(seriesSel.value||0);
+  const TA = loaded[idx].entries;
+  const EF = Number(document.getElementById('ef').value);
+  const KH = Number(document.getElementById('kh').value);
+  const TVmin = Number(document.getElementById('tvmin').value);
+  const TVmax = Number(document.getElementById('tvmax').value);
+  const tAvz = Number(document.getElementById('tavz').value);
+  const TVabs = Number(document.getElementById('tvabs').value);
+  const mode = document.getElementById('mode').value;
+
+  const TAvzArr = enfunctionTAvz(TA, tAvz);
+  const TVsoll = TVsollFromTA(TAvzArr, EF, KH, mode, TVabs);
+  const TVsollClamped = clamp(TVsoll, TVmin, TVmax);
+
+  const dataTA = TA.map(p=>({t:+p.t, v:p.v}));
+  const dataTAvz = TA.map((p,i)=>({t:+p.t, v:TAvzArr[i]}));
+  const dataTV = TA.map((p,i)=>({t:+p.t, v:TVsollClamped[i]}));
+
+  drawChart([
+    {name:'TA', data:dataTA},
+    {name:'TA_vz', data:dataTAvz},
+    {name:'TV_soll', data:dataTV}
+  ]);
+
+  // KPIs
+  const TAvals = TA.map(p=>p.v);
+  const TAmin = Math.min(...TAvals), TAmax = Math.max(...TAvals);
+  document.getElementById('kpiTA').textContent = `${fmt.format(TAmin)} / ${fmt.format(TAmax)} °C`;
+  document.getElementById('kpiTV').textContent = dataTV.length? `${fmt.format(dataTV.at(-1).v)} °C @ ${new Date(dataTV.at(-1).t).toLocaleString()}` : '–';
+
+  // Forecast with naive +24h diurnal repeat
+  const TAf = simpleForecast(TA, 24);
+  const TAvzf = enfunctionTAvz([...TA, ...TAf], tAvz).slice(TA.length);
+  const TVsollf = TVsollFromTA(TAvzf, EF, KH, mode, TVabs).map(v=>Math.max(TVmin, Math.min(TVmax, v)));
+  const forecastSeries = TAf.map((p,i)=>({t:+p.t, v:TVsollf[i]}));
+  document.getElementById('kpiF').textContent = forecastSeries.length? `${fmt.format(forecastSeries.at(-1).v)} °C` : '–';
+
+  // Advice (heuristic, based on envelope)
+  const adv = [];
+  const warmRange = TVsollClamped.filter(v=>!isNaN(v));
+  const medianTV = warmRange.length ? warmRange.slice().sort((a,b)=>a-b)[Math.floor(warmRange.length/2)] : NaN;
+  if(TAmin > 10 && medianTV > 45) adv.push(`Bei milder Witterung (TAmin ${fmt.format(TAmin)}°C) scheint TVsoll hoch (${fmt.format(medianTV)}°C). \u2192 EF leicht <b>reduzieren</b> (flachere Kurve) oder KH <b>senken</b>.`);
+  if(TAmin < 0 && (Math.max(...TVsollClamped) < 55)) adv.push(`Bei Frost könnte TVsoll zu niedrig sein. \u2192 EF <b>erhöhen</b> oder KH <b>anheben</b>, ggf. TVmax prüfen.`);
+  if(tAvz>36) adv.push(`tAvz=${tAvz}h ist sehr träge. \u2192 Für agileres Verhalten <b>verringern</b> (z.B. 12–24h).`);
+  if(tAvz<6) adv.push(`tAvz=${tAvz}h ist sehr kurz. \u2192 Gefahr nervöser Sollwertsprünge, ggf. <b>erhöhen</b> (12–24h).`);
+  const modeTxt = (mode==='nacht')? `Nachtabsenkung aktiv (${TVabs} K).` : `Tagbetrieb.`;
+  adv.push(modeTxt + ' Prüfe Komfort/Energie nach 1–2 Tagen und justiere in kleinen Schritten.');
+  document.getElementById('advice').innerHTML = adv.map(x=>`<li>${x}</li>`).join('');
+
+  // store last for export
+  window._lastCalc = {TA:dataTA, TAvz:dataTAvz, TVsoll:dataTV, TVsollForecast:forecastSeries};
+}
+
+// CSV export
+function toCSV(){
+  if(!window._lastCalc){alert('Noch nichts berechnet.');return}
+  const rows = ['Zeit;TA;TA_vz;TV_soll;TV_soll_+24h'];
+  const times = new Set([...window._lastCalc.TA.map(p=>p.t), ...window._lastCalc.TVsollForecast.map(p=>p.t)]);
+  const byTime = t=>({
+    TA: window._lastCalc.TA.find(p=>p.t===t)?.v,
+    TAvz: window._lastCalc.TAvz.find(p=>p.t===t)?.v,
+    TV: window._lastCalc.TVsoll.find(p=>p.t===t)?.v,
+    TVf: window._lastCalc.TVsollForecast.find(p=>p.t===t)?.v,
+  });
+  [...times].sort((a,b)=>a-b).forEach(t=>{
+    const r = byTime(t);
+    rows.push(`${new Date(t).toISOString()};${r.TA??''};${r.TAvz??''};${r.TV??''};${r.TVf??''}`)
+  });
+  const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='s239_analyse.csv'; a.click(); URL.revokeObjectURL(url);
+}
+
+// Fit EF/KH from two points
+function solveEFKH(points){
+  // For each point, map to linear form: TVsoll = 20 + KH - EF * m(TA)
+  // where m(ta) = (ta-24) for ta<15, else (1.8*ta - 36)
+  // => TVsoll - 20 = KH - EF * m
+  // Two equations -> solve for EF and KH.
+  const m = p => (p.region === '<15') ? (p.ta - 24) : (1.8*p.ta - 36);
+  const y1 = points[0].tv - 20, y2 = points[1].tv - 20;
+  const m1 = m(points[0]), m2 = m(points[1]);
+  const denom = (m2 - m1);
+  if(Math.abs(denom) < 1e-6) return null;
+  const EF = (y1 - y2) / denom;
+  const KH = y1 + EF*m1;
+  return {EF, KH};
+}
+
+// wiring
+ document.getElementById('run').addEventListener('click', compute);
+ document.getElementById('exportCsv').addEventListener('click', toCSV);
+ document.getElementById('curveFit').addEventListener('click', ()=>{
+   document.querySelector('details').open = true;
+ });
+ document.getElementById('applyFit').addEventListener('click', ()=>{
+   const p1 = {ta:Number(ta1.value), tv:Number(tv1.value), region:reg1.value};
+   const p2 = {ta:Number(ta2.value), tv:Number(tv2.value), region:reg2.value};
+   const sol = solveEFKH([p1,p2]);
+   if(!sol){alert('Punkte ungeeignet – wähle zwei unterschiedliche Bereiche/Temperaturen.');return}
+   document.getElementById('ef').value = sol.EF.toFixed(2);
+   document.getElementById('kh').value = sol.KH.toFixed(1);
+   compute();
+ });
+</script>
 </body>
 </html>
