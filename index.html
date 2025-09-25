@@ -1,0 +1,81 @@
+<!doctype html>
+<div class="ml-auto text-sm flex gap-2">
+<button id="resetZoomBtn" class="px-3 py-1 rounded-lg border">Zoom zurücksetzen</button>
+<label class="flex items-center gap-2"><input id="downsampleToggle" type="checkbox" class="scale-110" /> <span>Downsampling</span></label>
+</div>
+</div>
+<canvas id="trendChart" height="120"></canvas>
+</section>
+
+
+<!-- Regler-Tuner -->
+<section class="bg-white rounded-2xl shadow p-4 md:p-6 space-y-4">
+<h2 class="text-xl font-semibold">4) Regler‑Tuner</h2>
+<div class="grid md:grid-cols-3 gap-6">
+<div class="md:col-span-2 space-y-4">
+<div class="grid sm:grid-cols-2 gap-4">
+<label class="block">
+<span class="block text-sm font-medium">Prozessvariable (PV)</span>
+<select id="pvSelect" class="w-full rounded-xl border px-3 py-2"></select>
+<small class="text-slate-500">Wähle eine Kurve als Regelgröße (z. B. Vorlauf‑Ist).</small>
+</label>
+<label class="block">
+<span class="block text-sm font-medium">Sollwert (optional)</span>
+<input id="setpointInput" type="number" step="0.01" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 45.0" />
+<small class="text-slate-500">Falls TVsoll bekannt ist, hier eintragen.</small>
+</label>
+</div>
+
+
+<div class="grid lg:grid-cols-3 gap-4">
+<div class="space-y-2">
+<h3 class="font-medium">Aktuelle Reglerwerte</h3>
+<label class="block text-sm">XPY1 (P‑Band K)<input id="xpInput" type="number" step="0.1" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 50" /></label>
+<label class="block text-sm">tN (I‑Zeit, min)<input id="tnInput" type="number" step="0.1" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 3" /></label>
+<label class="block text-sm">Vorhalt (D‑Zeit, s)<input id="dInput" type="number" step="1" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 0" /></label>
+<label class="block text-sm">xwh (Totband, K)<input id="xwhInput" type="number" step="0.1" class="w-full rounded-xl border px-3 py-2" placeholder="z. B. 0" /></label>
+</div>
+<div class="space-y-2">
+<h3 class="font-medium">Grenzen & Heizkurve</h3>
+<label class="block text-sm">TV min (°C)<input id="tvminInput" type="number" class="w-full rounded-xl border px-3 py-2" placeholder="20" /></label>
+<label class="block text-sm">TV max (°C)<input id="tvmaxInput" type="number" class="w-full rounded-xl border px-3 py-2" placeholder="95" /></label>
+<label class="block text-sm">EF (Steilheit)<input id="efInput" type="number" step="0.1" class="w-full rounded-xl border px-3 py-2" placeholder="1.5" /></label>
+<label class="block text-sm">KH (Parallelversch.)<input id="khInput" type="number" step="1" class="w-full rounded-xl border px-3 py-2" placeholder="0" /></label>
+</div>
+<div class="space-y-2">
+<h3 class="font-medium">Aktionen</h3>
+<button id="analyzeBtn" class="w-full px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium">Analysieren</button>
+<button id="applySuggestionsBtn" class="w-full px-4 py-2 rounded-xl bg-amber-600 text-white font-medium" disabled>Vorschläge übernehmen</button>
+<button id="exportCsvBtn" class="w-full px-4 py-2 rounded-xl bg-slate-900 text-white font-medium" disabled>Als CSV exportieren</button>
+</div>
+</div>
+</div>
+
+
+<aside class="bg-slate-50 rounded-xl border p-4 space-y-3">
+<h3 class="font-medium">Analyse‑Ergebnis</h3>
+<ul id="analysisSummary" class="text-sm space-y-2 list-disc pl-5"></ul>
+<div id="suggestionsBox" class="hidden">
+<h4 class="font-medium mt-2">Vorgeschlagene Werte</h4>
+<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+<div>XPY1</div><div id="suggXP"></div>
+<div>tN</div><div id="suggTN"></div>
+<div>Vorhalt</div><div id="suggD"></div>
+<div>xwh</div><div id="suggXWH"></div>
+</div>
+</div>
+</aside>
+</div>
+</section>
+
+
+<footer class="text-xs text-slate-500">
+<p>Hinweis: Begriffe/Parameter gemäß DDC4000 Grundprogramm Heizung (S239). Siehe Projekt‑README.</p>
+</footer>
+</main>
+
+
+<script src="js/analyzer.js"></script>
+<script src="js/display.js"></script>
+</body>
+</html>
