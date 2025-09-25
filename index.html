@@ -388,20 +388,31 @@
             legend: { labels: { color: '#e6edf5' } },
             tooltip: {
               callbacks: {
-                label: (ctx)=> ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2)
+                label: (ctx) => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2)
               }
             },
-            zoom: {
-              pan: { enabled: true, mode: 'x', modifierKey: 'shift' },
+            zoom: { // Plugin-Konfiguration für zoom/pan
+              pan: {
+                enabled: true,
+                mode: 'x', // Nur X-Achse pannen
+                modifierKey: 'shift' // Erfordert Shift-Taste zum Pannen
+              },
               zoom: {
-                wheel: { enabled: true, modifierKey: 'ctrl' },
-                pinch: { enabled: false },
-                drag: { enabled: false },
-                mode: 'x' // ausschließlich X-Achse
+                wheel: {
+                  enabled: true, // Zoom mit Mausrad
+                  modifierKey: 'ctrl' // Erfordert Strg-Taste zum Zoomen mit Mausrad
+                },
+                pinch: {
+                  enabled: false // Kein Zoom mit Touchpad-Zwickel (nicht relevant für Mausrad/Shift)
+                },
+                drag: {
+                  enabled: false // Kein Zoom per Ziehen (nicht relevant für Mausrad/Shift)
+                },
+                mode: 'x' // Ausschließlich X-Achse zoomen
               }
-            }, mode: 'x' },
-              pan: { enabled: true, modifierKey: 'shift', mode: 'x' }
             }
+            // Kein separates `mode` oder `pan` hier außerhalb von `zoom`
+          }
           }
         }
       });
